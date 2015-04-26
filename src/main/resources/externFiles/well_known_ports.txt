@@ -1,0 +1,47 @@
+1   TCPMUX   TCP Port Service Multiplexer
+5   RJE   Remote Job Entry
+7   ECHO
+18   MSP   Message Send Protocol
+20   FTP Data
+21   FTP Control
+22   SSH    Remote Login Protocol
+23   Telnet
+25   SMTP   Simple Mail Transfer Protocol
+29   MSG ICP
+37   Time
+42   Nameserv   Host Name Server
+43   WhoIs
+49   Login   Login Host Protocol
+53   DNS   Domain Name System
+69   TFTP   Trivial File Transfer Protocol
+70   Gopher Services
+79   Finger
+80   HTTP   Hypertext Transfer Protocol
+103   X.400   Standard
+108   SNA   Gateway Access Server
+109   POP2
+110   POP3
+115   SFTP   Simple File Transfer Protocol
+118   SQL Services
+119   NNTP   Newsgroup
+137   NetBIOS Name Service
+139   NetBIOS Datagram Service
+143   IMAP   Interim Mail Access Protocol
+150   NetBIOS Session Service
+156   SQL Server
+161   SNMP
+179   BGP   Border Gateway Protocol
+190   GACP   Gateway Access Control Protocol
+194   IRC   Internet Relay Chat
+197   DLS   Directory Location Service
+389   LDAP   Lightweight Directory Access Protocol
+396   Novell Netware over IP
+443   HTTPS   Hypertext Transfer Protocol over TLS/SSL
+444   SNPP   Simple Network Paging Protocol
+445   Microsoft-DS
+458   Apple QuickTime
+546   DHCP Client
+547   DHCP Server
+563   SNEWS
+569   MSN
+1080   Socks
