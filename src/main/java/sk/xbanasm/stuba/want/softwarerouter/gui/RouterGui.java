@@ -715,11 +715,21 @@ public class RouterGui extends javax.swing.JFrame {
 
     private void activateRipToggleButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_activateRipToggleButtonActionPerformed
         if (activateRipToggleButton.getText().equals("Activate")) {
-            activateRipToggleButton.setText("Deactivate");
-            dynamicNetworkTextField.setEnabled(true);
-            addDynamicButton.setEnabled(true);
-            activeDynamicNetworksTable.setEnabled(true);
-            removeDynamicButton.setEnabled(true);
+            try {
+                activateRipToggleButton.setText("Deactivate");
+                dynamicNetworkTextField.setEnabled(true);
+                addDynamicButton.setEnabled(true);
+                activeDynamicNetworksTable.setEnabled(true);
+                removeDynamicButton.setEnabled(true);
+                
+                router.getRipParser().activateRipOnIface(Utils.ipAddressToByteArray("192.168.2.0"));
+                router.getRipParser().activateRipOnIface(Utils.ipAddressToByteArray("192.168.4.0"));
+                router.getRipParser().activateRipOnIface(Utils.ipAddressToByteArray("192.168.9.0"));
+                routerGuiUpdater.fillActiveDynamicNetworksTable();
+            } catch (UnknownHostException ex) {
+                Logger.getLogger(RouterGui.class.getName()).log(Level.SEVERE, null, ex);
+            }
+            
         } else {
             activateRipToggleButton.setText("Activate");
             dynamicNetworkTextField.setEnabled(false);
@@ -729,6 +739,7 @@ public class RouterGui extends javax.swing.JFrame {
 
             router.getRipParser().deactivateRip();
             routerGuiUpdater.fillActiveDynamicNetworksTable();
+            routerGuiUpdater.fillipRouteTable();
         }
     }//GEN-LAST:event_activateRipToggleButtonActionPerformed
 
