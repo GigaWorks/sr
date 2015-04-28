@@ -11,10 +11,10 @@ public class GatewayItem {
     
     private byte[] ipAddress;
     private boolean active = true;
-    private Integer metric;
+    private Long metric;
     private Date lastUpdate;
 
-    public GatewayItem(byte[] ipAddress, Integer metric) {
+    public GatewayItem(byte[] ipAddress, long metric) {
         this.ipAddress = ipAddress;
         this.metric = metric;
     }
@@ -23,11 +23,11 @@ public class GatewayItem {
         return ipAddress;
     }
 
-    public Integer getMetric() {
+    public Long getMetric() {
         return metric;
     }
 
-    public void setMetric(Integer metric) {
+    public void setMetric(Long metric) {
         this.metric = metric;
     }
 

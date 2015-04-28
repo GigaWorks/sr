@@ -54,7 +54,7 @@ public class RipManager implements Runnable {
         this.connectedPorts = connectedPorts;
         this.receivedRipPacketsQueue = receivedRipPacketsQueue;
         this.routingTable = routingTable;
-        
+
         ripTimers = new RipTimers(this);
         new Thread(ripTimers).start();
     }
@@ -66,12 +66,12 @@ public class RipManager implements Runnable {
                 ripPacket = receivedRipPacketsQueue.poll();
                 System.out.println("Dosral som rip paketlik " + !ripPacket.getIpv4Header().getTcpUdpAnalyser().isRequest());
                 /*
-                rozanalyzovat by si mal tie rip paketle v analyzatore kua
-                */
+                 rozanalyzovat by si mal tie rip paketle v analyzatore kua
+                 */
                 if (ripPacket.getIpv4Header().getTcpUdpAnalyser().isRequest()) {
-                    
+                    parseRequest();
                 } else {
-                    parseReceivedNeighborRoutes();
+                    parseResponse();
                 }
             }
             try {
@@ -81,46 +81,40 @@ public class RipManager implements Runnable {
             }
         }
     }
-    
+
     private void parseRequest() {
         int entriesCount = ripPacket.getIpv4Header().getTcpUdpAnalyser().getEntriesCount();
         int entriesOffset = ripPacket.getIpv4Header().getTcpUdpAnalyser().getEntriesOffset();
-        
+
         if ((ripPacket.getPacket().getUShort(entriesOffset + 1)) == 2) {
-            
+
         }
     }
 
-    private void parseReceivedNeighborRoutes() {
+    private void parseResponse() {
         int entriesCount = ripPacket.getIpv4Header().getTcpUdpAnalyser().getEntriesCount();
         int entriesOffset = ripPacket.getIpv4Header().getTcpUdpAnalyser().getEntriesOffset();
 
         System.out.println("RIP od: " + ripPacket.getIpv4Header().getSrcIp() + "  pocet zaznamov: " + entriesCount);
         for (int i = 0; i < entriesCount; i++) {
-            if ((ripPacket.getPacket().getByte(entriesOffset + 1) & 0xFF) == 2) {
+            RipEntry ripEntry = new RipEntry(ripPacket.getPacket(), entriesOffset);
+
+            if (ripEntry.getAfi() == 2) {
                 try {
-                    byte[] gateway;
-                    if (Arrays.equals(ripPacket.getPacket().getByteArray(entriesOffset + 12, 4), Utils.ipAddressToByteArray("0.0.0.0"))) {
-                        gateway = ripPacket.getIpv4Header().getSrcIpBA();
-                    } else {
-                        gateway = ripPacket.getPacket().getByteArray(entriesOffset + 12, 4);
+                    if (Arrays.equals(ripEntry.getNextHop(), Utils.ipAddressToByteArray("0.0.0.0"))) {
+                        ripEntry.setNextHop(ripPacket.getIpv4Header().getSrcIpBA());
                     }
 
-                    byte[] network = ripPacket.getPacket().getByteArray(entriesOffset + 4, 4);
-                    int metric = new BigInteger(ripPacket.getPacket().getByteArray(entriesOffset + 16, 4)).intValue();
-
-                    System.out.println("siet: " + Utils.ipByteArrayToString(network) + "  metrika: " + metric);
                     //System.out.println("ip: " + Utils.ipByteArrayToString(ripPacket.getPacket().getByteArray(entriesOffset + 4, 4)) + "  mask: " + Utils.ipByteArrayToString(ripPacket.getPacket().getByteArray(entriesOffset + 8, 4)) + "  gateway: " + Utils.ipByteArrayToString(gateway) + "  metric: " + new BigInteger(ripPacket.getPacket().getByteArray(entriesOffset + 16, 4)).intValue());
-                    routingTable.addRoute(RouteTypeEnum.DYNAMIC, network, ripPacket.getPacket().getByteArray(entriesOffset + 8, 4), null, new GatewayItem(gateway, metric));
-                } //ripPacket.getPacket().getByteArray(index, size);
-                catch (UnknownHostException ex) {
+                    routingTable.addRoute(RouteTypeEnum.DYNAMIC, ripEntry.getIpAddress(), ripEntry.getSubnetMask(), null, new GatewayItem(ripEntry.getNextHop(), ripEntry.getMetric()));
+                } catch (UnknownHostException ex) {
                     Logger.getLogger(RipManager.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
             entriesOffset += 20;
         }
     }
-    
+
     public void activateRipOnIface(byte[] network) throws UnknownHostException {
         for (RoutingTableItem item : routingTable.getRoutingTableList()) {
             if (item.getRouteType().equals(RouteTypeEnum.CONNECTED)) {
@@ -161,7 +155,7 @@ public class RipManager implements Runnable {
             System.out.println("sending poisoned route to from: " + ripIface.getIpAddress());
             ripIface.sendPacket(ripTriggeredPacket.getByteArray(0, ripTriggeredPacket.size()));
         }
-    }    
+    }
 
     public void sendUpdateToAllIfaces() {
         int listIndex = 0;
@@ -176,7 +170,7 @@ public class RipManager implements Runnable {
         }
         System.out.println("entries count: " + routesToSendList.size());
         if (!routesToSendList.isEmpty()) {
-            for (Interface ripActiveIface : activeRipIfacesList) { 
+            for (Interface ripActiveIface : activeRipIfacesList) {
                 System.out.println("Interfejs " + activeRipIfacesList.size());
                 while (listIndex < routesToSendList.size() - 1) {
                     System.out.println("List index " + listIndex);
@@ -213,19 +207,20 @@ public class RipManager implements Runnable {
     }
 
     private void send25Entries(List<RoutingTableItem> routesToSendList, int listIndex, Interface ripActiveIface) {
-        int metric, offset, i = 0, writtenEntries = 0;
+        int offset, i = 0, writtenEntries = 0;
         int remainingEntries = routesToSendList.size() - listIndex;
         int entriesForSent = remainingEntries > 25 ? 25 : (remainingEntries - 1);
+        long metric;
         JMemoryPacket ripUpdatePacket;
         System.out.println("remaining entries: " + remainingEntries + " entries for send: " + entriesForSent);
         ripUpdatePacket = createPacket(entriesForSent, ripActiveIface.getMacAddressBA(), ripActiveIface.getIpAddressBA(), ripResponse);
         //fill rip entries
         offset = 46;
-        while (writtenEntries < entriesForSent) {            
+        while (writtenEntries < entriesForSent) {
             RoutingTableItem route = routesToSendList.get(listIndex + i);
             System.out.println("WRAPING RIP ENTRY " + route.getNetworkAddress());
-            if (!Arrays.equals(Utils.getNetworkAddress(ripActiveIface.getIpAddressBA(), ripActiveIface.getSubnetMaskBA()), route.getNetworkAddressBA())) {
-                System.out.println("SOM DNU, ANO!");
+            if (!Arrays.equals(Utils.getNetworkAddress(ripActiveIface.getIpAddressBA(), ripActiveIface.getSubnetMaskBA()), route.getNetworkAddressBA())) { //if it is not the interface that i am sending to
+                System.out.println("SOM DNU, ANO!");                
                 if (route.getRouteType().equals(RouteTypeEnum.CONNECTED)) {
                     metric = 1;
                 } else {
@@ -276,7 +271,7 @@ public class RipManager implements Runnable {
         return ripUpdatePacket;
     }
 
-    private void writeRipEntryToPacket(JMemoryPacket ripPacket, int offset, int afi, byte[] ipAddress, byte[] subnetMask, int metric) {
+    private void writeRipEntryToPacket(JMemoryPacket ripPacket, int offset, int afi, byte[] ipAddress, byte[] subnetMask, long metric) {
         ripPacket.setUShort(offset, afi); //AFI
         ripPacket.setUShort(offset + 2, 0); //Route tag
         ripPacket.setByteArray(offset + 4, ipAddress); //ip address
@@ -284,69 +279,74 @@ public class RipManager implements Runnable {
         ripPacket.setUInt(offset + 16, metric);
     }
 
-    private void createAndSendRipPacket(Interface ripIface, int entriesCount) {
-        JMemoryPacket ripUpdatePacket = new JMemoryPacket(46 + entriesCount * 20);
-        //ripUpdatePacket.order(ByteOrder.BIG_ENDIAN);   
-        //Ethernet header
-        ripUpdatePacket.setByteArray(0, mcastMac); //dst        
-        ripUpdatePacket.setByteArray(6, ripIface.getMacAddressBA()); //src        
-        ripUpdatePacket.setUShort(12, 0x0800); //ethertype                
-        //IP header
-        ripUpdatePacket.setUByte(14, 0x40 | 0x05); //ip version, ihl
-        ripUpdatePacket.setUByte(15, 0xC0); //dscp, ecn
-        ripUpdatePacket.setUShort(16, 20 + 8 + 4 + entriesCount * 20); //total length = ip header + udp header + rip header + rip entries
-        ripUpdatePacket.setUInt(18, 0); //identification, flags
-        ripUpdatePacket.setUByte(22, 2); //ttl
-        ripUpdatePacket.setUByte(23, 0x11); //udp protocol encapsuled
-        ripUpdatePacket.setUShort(24, 0); //checksum set to 0
+    /*
+     private void createAndSendRipPacket(Interface ripIface, int entriesCount) {
+     JMemoryPacket ripUpdatePacket = new JMemoryPacket(46 + entriesCount * 20);
+     //ripUpdatePacket.order(ByteOrder.BIG_ENDIAN);   
+     //Ethernet header
+     ripUpdatePacket.setByteArray(0, mcastMac); //dst        
+     ripUpdatePacket.setByteArray(6, ripIface.getMacAddressBA()); //src        
+     ripUpdatePacket.setUShort(12, 0x0800); //ethertype                
+     //IP header
+     ripUpdatePacket.setUByte(14, 0x40 | 0x05); //ip version, ihl
+     ripUpdatePacket.setUByte(15, 0xC0); //dscp, ecn
+     ripUpdatePacket.setUShort(16, 20 + 8 + 4 + entriesCount * 20); //total length = ip header + udp header + rip header + rip entries
+     ripUpdatePacket.setUInt(18, 0); //identification, flags
+     ripUpdatePacket.setUByte(22, 2); //ttl
+     ripUpdatePacket.setUByte(23, 0x11); //udp protocol encapsuled
+     ripUpdatePacket.setUShort(24, 0); //checksum set to 0
 
-        ripUpdatePacket.setByteArray(26, ripIface.getIpAddressBA()); //src ip
-        ripUpdatePacket.setByteArray(30, mcastIp); //dst ip
+     ripUpdatePacket.setByteArray(26, ripIface.getIpAddressBA()); //src ip
+     ripUpdatePacket.setByteArray(30, mcastIp); //dst ip
 
-        ripUpdatePacket.setByteArray(24, Utils.RFC1071Checksum(ripUpdatePacket.getByteArray(14, 20))); //ip header checksum
+     ripUpdatePacket.setByteArray(24, Utils.RFC1071Checksum(ripUpdatePacket.getByteArray(14, 20))); //ip header checksum
 
-        //UDP header
-        ripUpdatePacket.setUShort(34, 520); //src port
-        ripUpdatePacket.setUShort(36, 520); //dst port
-        ripUpdatePacket.setUShort(38, 8 + 4 + entriesCount * 20); //length = udp header + rip header + rip entries
-        ripUpdatePacket.setUShort(40, 0); //null checksum
-        //RIP header
-        ripUpdatePacket.setUByte(42, 2); //command
-        ripUpdatePacket.setUByte(43, 2); //version
-        ripUpdatePacket.setUShort(44, 0); //all zeros
+     //UDP header
+     ripUpdatePacket.setUShort(34, 520); //src port
+     ripUpdatePacket.setUShort(36, 520); //dst port
+     ripUpdatePacket.setUShort(38, 8 + 4 + entriesCount * 20); //length = udp header + rip header + rip entries
+     ripUpdatePacket.setUShort(40, 0); //null checksum
+     //RIP header
+     ripUpdatePacket.setUByte(42, 2); //command
+     ripUpdatePacket.setUByte(43, 2); //version
+     ripUpdatePacket.setUShort(44, 0); //all zeros
 
-        System.out.println("RIP update sent to: " + ripIface.getName() + " (" + ripIface.getIpAddress() + ") entries: " + entriesCount);
-        //RIP entries
-        int offset = 46, i = 1;
-        for (RoutingTableItem route : routingTable.getRoutingTableList()) {
-            if (!route.getRouteType().equals(RouteTypeEnum.STATIC) && !Arrays.equals(Utils.getNetworkAddress(ripIface.getIpAddressBA(), ripIface.getSubnetMaskBA()), route.getNetworkAddressBA())) {
-                ripUpdatePacket.setUShort(offset, 2); //AFI
-                ripUpdatePacket.setUShort(offset + 2, 0); //Route tag
-                ripUpdatePacket.setByteArray(offset + 4, route.getNetworkAddressBA()); //ip address
-                ripUpdatePacket.setByteArray(offset + 8, route.getSubnetMaskBA()); // subnet mask
-                System.out.print("network address: " + Utils.ipByteArrayToString(route.getNetworkAddressBA()) + "  ");
-                ripUpdatePacket.setUInt(offset + 12, 0); //gateway
-                if (route.getRouteType().equals(RouteTypeEnum.CONNECTED)) {
-                    //ripUpdatePacket.setUInt(offset + 12, 0); //gateway
-                    ripUpdatePacket.setUInt(offset + 16, 1); //metric
-                    System.out.println(i + ": 0.0.0.0");
-                } else {
-                    //ripUpdatePacket.setByteArray(offset + 12, route.getActiveGateway().getIpAddress()); //gateway, next hop
-                    ripUpdatePacket.setUInt(offset + 16, route.getActiveGateway().getMetric() + 1); //metric
-                    int metric = route.getActiveGateway().getMetric() + 1;
-                    System.out.println(i + ": " + Utils.ipByteArrayToString(route.getActiveGateway().getIpAddress()) + " (" + metric + ") ");
-                }
-                offset += 20;
+     System.out.println("RIP update sent to: " + ripIface.getName() + " (" + ripIface.getIpAddress() + ") entries: " + entriesCount);
+     //RIP entries
+     int offset = 46, i = 1;
+     for (RoutingTableItem route : routingTable.getRoutingTableList()) {
+     if (!route.getRouteType().equals(RouteTypeEnum.STATIC) && !Arrays.equals(Utils.getNetworkAddress(ripIface.getIpAddressBA(), ripIface.getSubnetMaskBA()), route.getNetworkAddressBA())) {
+     ripUpdatePacket.setUShort(offset, 2); //AFI
+     ripUpdatePacket.setUShort(offset + 2, 0); //Route tag
+     ripUpdatePacket.setByteArray(offset + 4, route.getNetworkAddressBA()); //ip address
+     ripUpdatePacket.setByteArray(offset + 8, route.getSubnetMaskBA()); // subnet mask
+     System.out.print("network address: " + Utils.ipByteArrayToString(route.getNetworkAddressBA()) + "  ");
+     ripUpdatePacket.setUInt(offset + 12, 0); //gateway
+     if (route.getRouteType().equals(RouteTypeEnum.CONNECTED)) {
+     //ripUpdatePacket.setUInt(offset + 12, 0); //gateway
+     ripUpdatePacket.setUInt(offset + 16, 1); //metric
+     System.out.println(i + ": 0.0.0.0");
+     } else {
+     //ripUpdatePacket.setByteArray(offset + 12, route.getActiveGateway().getIpAddress()); //gateway, next hop
+     ripUpdatePacket.setUInt(offset + 16, route.getActiveGateway().getMetric() + 1); //metric
+     int metric = route.getActiveGateway().getMetric() + 1;
+     System.out.println(i + ": " + Utils.ipByteArrayToString(route.getActiveGateway().getIpAddress()) + " (" + metric + ") ");
+     }
+     offset += 20;
 
-                i++;
-            }
-        }
+     i++;
+     }
+     }
 
-        ripIface.sendPacket(ripUpdatePacket.getByteArray(0, ripUpdatePacket.size()));
-    }
-
+     ripIface.sendPacket(ripUpdatePacket.getByteArray(0, ripUpdatePacket.size()));
+     }
+     */
     public List<Interface> getActiveRipIfacesList() {
         return activeRipIfacesList;
+    }
+
+    public RoutingTable getRoutingTable() {
+        return routingTable;
     }
 
 }

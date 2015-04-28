@@ -8,7 +8,6 @@
 package sk.xbanasm.stuba.want.softwarerouter.packetanalyzer;
 
 import org.jnetpcap.packet.PcapPacket;
-import sk.xbanasm.stuba.want.softwarerouter.equip.Utils;
 
 public final class TcpUdpAnalyser {
 
@@ -30,10 +29,10 @@ public final class TcpUdpAnalyser {
 
         //System.out.println(transportProtocolName + "\nsrc port: " + sourcePortNumber + "  dst port: " + destinationPortNumber);
         if (sourcePortNumber == 520) {                  
-            if ((packet.getByte(42 + ipHeaderOptionsLen) & 0xFF) == 1) {
+            if (packet.getUByte(42 + ipHeaderOptionsLen) == 1) {
                 request = true;
             }
-            version = packet.getByte(43 + ipHeaderOptionsLen) & 0xFF;
+            version = packet.getUByte(43 + ipHeaderOptionsLen);
             if (version == 2) {
                 ripFound = true;
             }

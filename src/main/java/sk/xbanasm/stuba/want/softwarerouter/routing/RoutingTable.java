@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -25,34 +26,48 @@ public class RoutingTable {
     }
 
     //treba tu spravit thread na timer updejtu gatewaye
-    public void addRoute(RouteTypeEnum routeType, byte[] ipAddress, byte[] subnetMask, Interface destinationInterface, GatewayItem gateway) throws UnknownHostException {
+    public void addRoute(RouteTypeEnum routeType, byte[] ipAddress, byte[] subnetMask, Interface outputInterface, GatewayItem gateway) throws UnknownHostException {
         boolean foundRoute = false;
         boolean foundGateway = false;
         System.out.println("add route " + Utils.ipByteArrayToString(ipAddress) + " " + Utils.ipByteArrayToString(subnetMask) + " " + routeType);
-        for (RoutingTableItem item : routingTableList) {
-            if (!item.getRouteType().equals(RouteTypeEnum.CONNECTED) && Arrays.equals(item.getNetworkAddressBA(), ipAddress) && Arrays.equals(item.getMaskBA(), subnetMask)) {
-                foundRoute = true;
 
-                for (GatewayItem gatewayItem : item.getGatewaysList()) {
-                    if (Arrays.equals(gatewayItem.getIpAddress(), gateway.getIpAddress())) {
+        for (RoutingTableItem route : routingTableList) {
+            if (!route.getRouteType().equals(RouteTypeEnum.CONNECTED) && Arrays.equals(route.getNetworkAddressBA(), ipAddress) && Arrays.equals(route.getMaskBA(), subnetMask)) {
+                //toto je ten prefix, ktory si dostal
+                route.setLastUpdate(new Date());
+
+                for (GatewayItem gatewayItem : route.getGatewaysList()) {
+                    if (Arrays.equals(gatewayItem.getIpAddress(), gateway.getIpAddress())) { //found same gateway
+                        //toto je ta gateway, ktoru si dostal
                         foundGateway = true;
-                        if (!gatewayItem.getMetric().equals(gateway.getMetric())) {
+
+                        if (gateway.getMetric() > 15) { //poisoned route
+                            if (route.getGatewaysList().size() == 1) {
+                                route.setRouteState(RouteStateEnum.INVALID);
+                                //TRIGGERED UPDATE NIGGA S POISONED ROUTOU
+                            }
+                            gateway.setActive(false);
                             gatewayItem.setMetric(gateway.getMetric());
-                            item.sortGateways();
+                            route.sortGateways();
+                        } else if (!gatewayItem.getMetric().equals(gateway.getMetric())) {
+                            gatewayItem.setMetric(gateway.getMetric());
+                            route.sortGateways();
+                            //TRIGGERED UPDATE S 
                         }
                     }
                 }
                 if (!foundGateway) {
-                    item.addGateway(gateway);
-                    item.sortGateways();
+                    route.addGateway(gateway);
+                    route.sortGateways();
                 }
+
+                return;
             }
         }
 
-        if (!foundRoute) {
-            routingTableList.add(new RoutingTableItem(routeType, ipAddress, subnetMask, destinationInterface, gateway));
-            sortRoutes();
-        }
+        routingTableList.add(new RoutingTableItem(routeType, ipAddress, subnetMask, outputInterface, gateway));
+        sortRoutes();
+
         System.out.println("foundPrefix: " + foundRoute + "  foundGateway: " + foundGateway);
     }
 
@@ -64,8 +79,7 @@ public class RoutingTable {
             System.out.println("Item: " + route.getNetworkAddress() + " " + route.getMask());
             System.out.println("network addresy: " + Utils.ipByteArrayToString(Utils.getNetworkAddress(dstIp, route.getSubnetMaskBA())) + " " + Utils.ipByteArrayToString(route.getNetworkAddressBA()));
             if (Arrays.equals(Utils.getNetworkAddress(dstIp, route.getSubnetMaskBA()), route.getNetworkAddressBA())) {
-                //paket patri do podsiete tejto polozky routovacej tabulky
-                System.out.println("Route type " + route.routeType);
+                //paket patri do podsiete tejto polozky routovacej tabulky                
                 if (route.getRouteType().equals(RouteTypeEnum.CONNECTED)) {
                     //directly connected                                        
                     if (Arrays.equals(dstIp, route.getOutputInterface().getIpAddressBA())) {

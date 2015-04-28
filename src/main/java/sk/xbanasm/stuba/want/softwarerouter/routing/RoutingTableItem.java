@@ -4,6 +4,7 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Date;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import sk.xbanasm.stuba.want.softwarerouter.equip.Utils;
@@ -15,19 +16,25 @@ import sk.xbanasm.stuba.want.softwarerouter.machine.Interface;
  */
 public class RoutingTableItem {
 
-    protected RouteTypeEnum routeType;
-    protected byte[] networkAddressBA;
-    protected String networkAddress;
-    protected byte[] maskBA;
-    protected String mask;
+    private RouteTypeEnum routeType;
+    private RouteStateEnum routeState;
+    private byte[] networkAddressBA;
+    private String networkAddress;
+    private byte[] maskBA;
+    private String mask;
 
     protected Integer administrativeDistance;
 
     private Interface outputInterface;
     private List<GatewayItem> gatewaysList = new CopyOnWriteArrayList<>();
+    
+    private Date lastUpdate;
 
     public RoutingTableItem(RouteTypeEnum routeType, byte[] ipAddress, byte[] subnetMask, Interface outputInterface, GatewayItem gateway) throws UnknownHostException {
         this.routeType = routeType;
+        routeState = RouteStateEnum.ACTIVE;
+        lastUpdate = new Date();
+        
         if (routeType.equals(RouteTypeEnum.CONNECTED)) {
             this.networkAddressBA = Utils.getNetworkAddress(ipAddress, subnetMask);
             this.networkAddress = Utils.ipByteArrayToString(this.networkAddressBA);
@@ -63,12 +70,20 @@ public class RoutingTableItem {
     public void sortGateways() {
         List<GatewayItem> tempGatewaysList = new ArrayList<>(gatewaysList);
         Collections.sort(tempGatewaysList, new Comparator<GatewayItem>() {
+
+            @Override
+            public int compare(GatewayItem o1, GatewayItem o2) {
+                return o1.getMetric().compareTo(o2.getMetric());
+            }
+            /*
             @Override
             public int compare(GatewayItem i1, GatewayItem i2) {
                 return i1.getMetric().compareTo(i2.getMetric());
             }
+            */
         });
         gatewaysList = tempGatewaysList;
+        gatewaysList.get(0).setActive(true);
     }
 
     public GatewayItem getActiveGateway() {
@@ -115,4 +130,16 @@ public class RoutingTableItem {
         return administrativeDistance;
     }
 
+    public Date getLastUpdate() {
+        return lastUpdate;
+    }
+
+    public void setRouteState(RouteStateEnum routeState) {
+        this.routeState = routeState;
+    }
+
+    public void setLastUpdate(Date lastUpdate) {
+        this.lastUpdate = lastUpdate;
+    }
+    
 }
