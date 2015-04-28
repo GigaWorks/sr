@@ -122,7 +122,7 @@ public class RouterGuiUpdater implements Runnable {
         DefaultTableModel activeDynamicNetworksTable = (DefaultTableModel) routerGui.getActiveDynamicNetworksTable().getModel();
         activeDynamicNetworksTable.setRowCount(0);
 
-        for (Interface item : router.getRipParser().getActiveRipIfacesList()) {
+        for (Interface item : router.getRipManager().getActiveRipIfacesList()) {
                 tableData[0] = rowNumber.toString();
                 tableData[1] = Utils.ipByteArrayToString(Utils.getNetworkAddress(item.getIpAddressBA(), item.getSubnetMaskBA()));
                 tableData[2] = item.getName();

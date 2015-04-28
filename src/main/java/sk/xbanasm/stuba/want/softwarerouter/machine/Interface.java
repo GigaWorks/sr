@@ -45,6 +45,8 @@ public class Interface extends InterfaceAbstract implements Runnable {
     private boolean ripActivated = false;
     private Date lastRipUpdate = null;
 
+    private final byte[] mcastIp = {(byte) 0xE0, (byte) 0x00, (byte) 0x00, (byte) 0x09}; //224.0.0.9
+
     public Interface(String name, PcapIf device, Queue<ReceivedPacket> receivedPacketsQueue, Queue<ReceivedPacket> receivedArpPacketsQueue, Queue<ReceivedPacket> receivedRipPacketsQueue, RoutingTable routingTable) throws IOException {
         super(name, device);
         this.receivedPacketsQueue = receivedPacketsQueue;
@@ -74,12 +76,13 @@ public class Interface extends InterfaceAbstract implements Runnable {
                         } else if (receivedPacket.isIpv4Found()) {
                             System.out.println("Som NEENI arp  " + ripActivated + " " + receivedPacket.getIpv4Header().isTransportProtocolFound());
                             // System.out.println("src ip: " + receivedPacket.getIpv4Header().getSrcIp() + "  dst ip: " + receivedPacket.getIpv4Header().getDstIp() + "  " + ripActivated + " " + receivedPacket.getIpv4Header().isTransportProtocolFound() + " " + receivedPacket.getIpv4Header().getTcpUdpAnalyser().isRipFound());
-                            if (receivedPacket.getIpv4Header().isTransportProtocolFound() && receivedPacket.getIpv4Header().getTcpUdpAnalyser().isRipFound()) {
-                                System.out.println("vosiel som dnu");
-                                if (ripActivated) {
-                                    System.out.println("RIPko som");
-                                    receivedRipPacketsQueue.add(receivedPacket);
-                                }
+                            if (receivedPacket.getIpv4Header().isTransportProtocolFound()
+                                    && receivedPacket.getIpv4Header().getTcpUdpAnalyser().isRipFound()
+                                    && (Arrays.equals(receivedPacket.getIpv4Header().getDstIpBA(), mcastIp) || Arrays.equals(receivedPacket.getIpv4Header().getDstIpBA(), ipAddressBA))
+                                    && ripActivated) {
+
+                                System.out.println("RIPko som");
+                                receivedRipPacketsQueue.add(receivedPacket);
                             } else {
                                 System.out.println("som nejaky stock");
                                 receivedPacketsQueue.add(receivedPacket);

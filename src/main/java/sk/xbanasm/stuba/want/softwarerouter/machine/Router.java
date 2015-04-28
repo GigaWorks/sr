@@ -24,7 +24,7 @@ import sk.xbanasm.stuba.want.softwarerouter.packetanalyzer.ReceivedPacket;
 import sk.xbanasm.stuba.want.softwarerouter.equip.Utils;
 import sk.xbanasm.stuba.want.softwarerouter.gui.RouterGui;
 import sk.xbanasm.stuba.want.softwarerouter.routing.GatewayItem;
-import sk.xbanasm.stuba.want.softwarerouter.routing.RipParser;
+import sk.xbanasm.stuba.want.softwarerouter.routing.RipManager;
 
 /**
  *
@@ -39,7 +39,7 @@ public class Router {
     private final Queue<ReceivedPacket> receivedRipPacketsQueue = new ConcurrentLinkedQueue<>();
     private Forwarder forwarder;
     private RoutingTable routingTable;
-    private RipParser ripParser;
+    private RipManager ripParser;
     
     public Router(RouterGui routerGui) throws IOException {
         this.routerGui = routerGui;
@@ -66,7 +66,7 @@ public class Router {
         this.forwarder = new Forwarder(interfaces, receivedPacketsQueue, receivedArpPacketsQueue, routingTable);
         new Thread(forwarder).start();  
         
-        this.ripParser = new RipParser(interfaces, receivedRipPacketsQueue, routingTable);
+        this.ripParser = new RipManager(interfaces, receivedRipPacketsQueue, routingTable);
         new Thread(ripParser).start();
         
         loadConfig();
@@ -110,7 +110,7 @@ public class Router {
         return routingTable;
     }
 
-    public RipParser getRipParser() {
+    public RipManager getRipManager() {
         return ripParser;
     }
     

@@ -722,9 +722,9 @@ public class RouterGui extends javax.swing.JFrame {
                 activeDynamicNetworksTable.setEnabled(true);
                 removeDynamicButton.setEnabled(true);
                 
-                router.getRipParser().activateRipOnIface(Utils.ipAddressToByteArray("192.168.2.0"));
-                router.getRipParser().activateRipOnIface(Utils.ipAddressToByteArray("192.168.4.0"));
-                router.getRipParser().activateRipOnIface(Utils.ipAddressToByteArray("192.168.9.0"));
+                router.getRipManager().activateRipOnIface(Utils.ipAddressToByteArray("192.168.2.0"));
+                router.getRipManager().activateRipOnIface(Utils.ipAddressToByteArray("192.168.4.0"));
+                router.getRipManager().activateRipOnIface(Utils.ipAddressToByteArray("192.168.9.0"));
                 routerGuiUpdater.fillActiveDynamicNetworksTable();
             } catch (UnknownHostException ex) {
                 Logger.getLogger(RouterGui.class.getName()).log(Level.SEVERE, null, ex);
@@ -737,7 +737,7 @@ public class RouterGui extends javax.swing.JFrame {
             activeDynamicNetworksTable.setEnabled(false);
             removeDynamicButton.setEnabled(false);
 
-            router.getRipParser().deactivateRip();
+            router.getRipManager().deactivateRip();
             routerGuiUpdater.fillActiveDynamicNetworksTable();
             routerGuiUpdater.fillipRouteTable();
         }
@@ -746,7 +746,7 @@ public class RouterGui extends javax.swing.JFrame {
     private void addDynamicButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_addDynamicButtonActionPerformed
         if (!dynamicNetworkTextField.getText().equals("")) {
             try {
-                router.getRipParser().activateRipOnIface(Utils.ipAddressToByteArray(dynamicNetworkTextField.getText()));
+                router.getRipManager().activateRipOnIface(Utils.ipAddressToByteArray(dynamicNetworkTextField.getText()));
                 routerGuiUpdater.fillActiveDynamicNetworksTable();
             } catch (UnknownHostException ex) {
                 Logger.getLogger(RouterGui.class.getName()).log(Level.SEVERE, null, ex);
@@ -758,8 +758,7 @@ public class RouterGui extends javax.swing.JFrame {
 
     private void removeDynamicButtonActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_removeDynamicButtonActionPerformed
         if (activeDynamicNetworksTable.getSelectedRow() != -1) {
-            router.getRipParser().getActiveRipIfacesList().get(activeDynamicNetworksTable.getSelectedRow()).setRipActivated(false);
-            router.getRipParser().getActiveRipIfacesList().remove(activeDynamicNetworksTable.getSelectedRow());
+            router.getRipManager().deactivateRipOnIface(activeDynamicNetworksTable.getSelectedRow());
             routerGuiUpdater.fillActiveDynamicNetworksTable();
         }
     }//GEN-LAST:event_removeDynamicButtonActionPerformed
